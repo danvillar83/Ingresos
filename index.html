@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ingresos por Paquetes</title>
+  <style>
+    body{font-family:Arial,system-ui; background:#f4f6f8; margin:0; padding:16px;}
+    h1{margin:0 0 12px; text-align:center;}
+    .grid{display:grid; gap:12px; grid-template-columns:1fr;}
+    .card{background:#fff; border-radius:12px; padding:14px; box-shadow:0 2px 10px rgba(0,0,0,.06);}
+    label{font-size:13px; color:#333; display:block; margin-top:10px;}
+    input, button{width:100%; padding:10px; margin-top:6px; border:1px solid #d6dbe1; border-radius:10px; font-size:15px;}
+    button{border:none; background:#2563eb; color:#fff; cursor:pointer;}
+    button.secondary{background:#111827;}
+    button.danger{background:#dc2626;}
+    .row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+    table{width:100%; border-collapse:collapse; margin-top:10px;}
+    th,td{border-bottom:1px solid #e5e7eb; padding:8px; font-size:14px; text-align:left;}
+    .muted{color:#6b7280; font-size:12px;}
+    .small{font-size:12px;}
+
+    /* Totales superiores */
+    .topTotals{display:grid; gap:10px; grid-template-columns:1fr 1fr; margin-top:10px;}
+    .kpi{
+      background:#f9fafb;
+      border:1px solid #e5e7eb;
+      border-radius:14px;
+      padding:12px;
+    }
+    .kpi .title{font-size:12px; color:#374151; margin-bottom:6px;}
+    .kpi .value{font-size:18px; font-weight:800; letter-spacing:.2px;}
+    .kpi.total{background:#eef2ff; border-color:#c7d2fe;}
+    .kpi .hint{font-size:11px; color:#6b7280; margin-top:6px;}
+
+    @media (min-width: 900px){
+      .grid{grid-template-columns: 1fr 1fr;}
+      .span2{grid-column: 1 / -1;}
+      .topTotals{grid-template-columns:1fr 1fr 1fr 1fr;}
+    }
+  </style>
+</head>
+<body>
+  <h1>📦 Ingresos Trabajo</h1>
+
+  <!-- CABECERA: Mes + Valor por paquete + KPIs -->
+  <div class="card span2">
+    <h3 style="margin:0 0 8px;">Resumen mensual</h3>
+
+    <div class="row">
+      <div>
+        <label>Mes a visualizar</label>
+        <input id="month" type="month" />
+        <div class="muted">Cambiar el mes es como cambiar de “pestaña” en tu Excel.</div>
+      </div>
+      <div>
+        <label>Valor por paquete ($)</label>
+        <input id="rate" type="number" min="0" step="1" value="1200" />
+        <div class="muted">Por defecto 1200 (igual a tu planilla).</div>
+      </div>
+    </div>
+
+    <div class="topTotals">
+      <div class="kpi">
+        <div class="title">1) Total $ por paquetes</div>
+        <div class="value" id="kpiPackages">$0</div>
+        <div class="hint">paquetes × valor paquete</div>
+      </div>
+      <div class="kpi">
+        <div class="title">2) Total $ por retiros</div>
+        <div class="value" id="kpiWithdrawals">$0</div>
+        <div class="hint">suma de retiros diarios</div>
+      </div>
+      <div class="kpi">
+        <div class="title">3) Total $ otros ingresos</div>
+        <div class="value" id="kpiExtras">$0</div>
+        <div class="hint">bonos / fundación / otros</div>
+      </div>
+      <div class="kpi total">
+        <div class="title">4) TOTAL GENERAL</div>
+        <div class="value" id="kpiTotal">$0</div>
+        <div class="hint">1 + 2 + 3</div>
+      </div>
+    </div>
+
+    <div class="muted" style="margin-top:10px;">
+      * Uber se registra solo como dato informativo (no se resta del total general).
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- EXTRAS -->
+    <div class="card">
+      <h3 style="margin:0 0 8px;">Otros ingresos (extras)</h3>
+      <label>Nombre del ingreso</label>
+      <input id="extraLabel" type="text" placeholder="Ej: Fundación / bono / ajuste" />
+
+      <label>Monto ($)</label>
+      <input id="extraAmount" type="number" min="0" step="1" placeholder="Ej: 280000" />
+
+      <button class="secondary" onclick="addExtra()">Agregar extra al mes</button>
+      <div id="extrasView" class="small" style="margin-top:10px;"></div>
+    </div>
+
+    <!-- AGREGAR DÍA -->
+    <div class="card">
+      <h3 style="margin:0 0 8px;">Agregar registro diario</h3>
+
+      <label>Fecha</label>
+      <input id="date" type="date" />
+
+      <div class="row">
+        <div>
+          <label>Cant. paquetes</label>
+          <input id="packages" type="number" min="0" step="1" placeholder="Ej: 52" />
+        </div>
+        <div>
+          <label>Retiros paquetería ($)</label>
+          <input id="withdrawals" type="number" min="0" step="1" placeholder="Ej: 14000" />
+        </div>
+      </div>
+
+      <label>Uber ($) (solo informativo)</label>
+      <input id="uber" type="number" min="0" step="1" placeholder="Ej: 3000" />
+
+      <button onclick="addDay()">Guardar día</button>
+      <div class="muted" style="margin-top:8px;">Si un campo va vacío, se guarda como 0.</div>
+    </div>
+
+    <!-- TABLA + ACCIONES -->
+    <div class="card span2">
+      <h3 style="margin:0 0 8px;">Detalle del mes</h3>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Paq</th>
+            <th>Retiros $</th>
+            <th>Uber $</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+
+      <div class="row" style="margin-top:10px;">
+        <button class="secondary" onclick="exportCSV()">Exportar CSV</button>
+        <button class="danger" onclick="clearMonth()">Borrar mes</button>
+      </div>
+
+      <div class="muted" style="margin-top:10px;" id="footInfo"></div>
+    </div>
+  </div>
+
+<script>
+  // ---- Storage helpers ----
+  const keyFor = (ym) => `ingresos_app_${ym}`;
+  const extrasKeyFor = (ym) => `ingresos_app_extras_${ym}`;
+
+  const fmtCLP = (n) => (Number(n)||0).toLocaleString("es-CL");
+
+  function todayISO(){
+    const d = new Date();
+    const pad = (x)=> String(x).padStart(2,"0");
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  }
+
+  function monthISO(){
+    const d = new Date();
+    const pad = (x)=> String(x).padStart(2,"0");
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+  }
+
+  function getMonth(){
+    return document.getElementById("month").value || monthISO();
+  }
+
+  function getRate(){
+    return Number(document.getElementById("rate").value || 1200);
+  }
+
+  function loadRows(ym){
+    return JSON.parse(localStorage.getItem(keyFor(ym)) || "[]");
+  }
+
+  function saveRows(ym, rows){
+    localStorage.setItem(keyFor(ym), JSON.stringify(rows));
+  }
+
+  function loadExtras(ym){
+    return JSON.parse(localStorage.getItem(extrasKeyFor(ym)) || "[]");
+  }
+
+  function saveExtras(ym, extras){
+    localStorage.setItem(extrasKeyFor(ym), JSON.stringify(extras));
+  }
+
+  // ---- Actions ----
+  function addDay(){
+    const ym = getMonth();
+    const rows = loadRows(ym);
+
+    const date = document.getElementById("date").value;
+    if(!date){ alert("Selecciona una fecha"); return; }
+
+    const packages = Number(document.getElementById("packages").value || 0);
+    const withdrawals = Number(document.getElementById("withdrawals").value || 0);
+    const uber = Number(document.getElementById("uber").value || 0);
+
+    rows.push({ date, packages, withdrawals, uber });
+    rows.sort((a,b)=> a.date.localeCompare(b.date));
+    saveRows(ym, rows);
+
+    // opcional: recordar último retiro
+    localStorage.setItem("last_withdrawals_value", String(withdrawals));
+
+    document.getElementById("packages").value = "";
+    document.getElementById("uber").value = "";
+
+    render();
+  }
+
+  function deleteRow(idx){
+    const ym = getMonth();
+    const rows = loadRows(ym);
+    rows.splice(idx,1);
+    saveRows(ym, rows);
+    render();
+  }
+
+  function addExtra(){
+    const ym = getMonth();
+    const label = (document.getElementById("extraLabel").value || "").trim();
+    const amount = Number(document.getElementById("extraAmount").value || 0);
+
+    if(!label || amount<=0){
+      alert("Completa nombre y monto del extra");
+      return;
+    }
+
+    const extras = loadExtras(ym);
+    extras.push({ label, amount });
+    saveExtras(ym, extras);
+
+    document.getElementById("extraLabel").value = "";
+    document.getElementById("extraAmount").value = "";
+    render();
+  }
+
+  function removeExtra(i){
+    const ym = getMonth();
+    const extras = loadExtras(ym);
+    extras.splice(i,1);
+    saveExtras(ym, extras);
+    render();
+  }
+
+  function clearMonth(){
+    const ym = getMonth();
+    if(!confirm(`¿Seguro que quieres borrar TODO el mes ${ym}?`)) return;
+    localStorage.removeItem(keyFor(ym));
+    localStorage.removeItem(extrasKeyFor(ym));
+    render();
+  }
+
+  function exportCSV(){
+    const ym = getMonth();
+    const rows = loadRows(ym);
+    const extras = loadExtras(ym);
+    const rate = getRate();
+
+    let csv = "Mes,Fecha,CantPaquetes,Retiros,Uber,ValorPorPaquete\n";
+    rows.forEach(r=>{
+      csv += `${ym},${r.date},${r.packages},${r.withdrawals},${r.uber},${rate}\n`;
+    });
+
+    csv += "\nExtras\nNombre,Monto\n";
+    extras.forEach(e=>{
+      csv += `${e.label},${e.amount}\n`;
+    });
+
+    const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ingresos_${ym}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ---- Render ----
+  function render(){
+    const ym = getMonth();
+    const rows = loadRows(ym);
+    const extras = loadExtras(ym);
+    const rate = getRate();
+
+    // Table
+    const tbody = document.getElementById("rows");
+    tbody.innerHTML = "";
+    rows.forEach((r,idx)=>{
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${r.date}</td>
+        <td>${r.packages}</td>
+        <td>$${fmtCLP(r.withdrawals)}</td>
+        <td>$${fmtCLP(r.uber)}</td>
+        <td><button class="danger" style="width:auto;padding:8px 10px;border-radius:10px;" onclick="deleteRow(${idx})">Eliminar</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // Extras view
+    const extrasView = document.getElementById("extrasView");
+    if(extras.length === 0){
+      extrasView.innerHTML = `<span class="muted">Sin otros ingresos en este mes.</span>`;
+    } else {
+      extrasView.innerHTML = extras.map((e,i)=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;background:#f9fafb;border:1px solid #e5e7eb;padding:10px;border-radius:12px;margin-top:8px;">
+          <div>${e.label}</div>
+          <div><b>$${fmtCLP(e.amount)}</b>
+            <button class="danger" style="width:auto;padding:6px 10px;border-radius:10px;margin-left:8px;" onclick="removeExtra(${i})">X</button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    // KPIs (lo que pediste)
+    const totalPackages = rows.reduce((s,r)=> s + (Number(r.packages)||0), 0);
+    const totalByPackages = totalPackages * rate;
+
+    const totalWithdrawals = rows.reduce((s,r)=> s + (Number(r.withdrawals)||0), 0);
+    const totalUber = rows.reduce((s,r)=> s + (Number(r.uber)||0), 0);
+
+    const totalExtras = extras.reduce((s,e)=> s + (Number(e.amount)||0), 0);
+
+    const totalGeneral = totalByPackages + totalWithdrawals + totalExtras;
+
+    document.getElementById("kpiPackages").innerText = `$${fmtCLP(totalByPackages)}`;
+    document.getElementById("kpiWithdrawals").innerText = `$${fmtCLP(totalWithdrawals)}`;
+    document.getElementById("kpiExtras").innerText = `$${fmtCLP(totalExtras)}`;
+    document.getElementById("kpiTotal").innerText = `$${fmtCLP(totalGeneral)}`;
+
+    // info pie
+    const daysWorked = rows.filter(r => Number(r.packages) > 0).length;
+    document.getElementById("footInfo").innerText =
+      `Días trabajados (paq>0): ${daysWorked} | Total paquetes: ${totalPackages} | Total Uber (informativo): $${fmtCLP(totalUber)}`;
+  }
+
+  // Init defaults
+  (function init(){
+    document.getElementById("month").value = monthISO();
+    document.getElementById("date").value = todayISO();
+
+    // recordar el último retiro usado
+    const lastW = localStorage.getItem("last_withdrawals_value");
+    if (lastW) document.getElementById("withdrawals").value = lastW;
+
+    document.getElementById("month").addEventListener("change", render);
+    document.getElementById("rate").addEventListener("input", render);
+
+    render();
+  })();
+</script>
+</body>
+</html>
