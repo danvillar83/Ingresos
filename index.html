@@ -3,24 +3,25 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Ingresos por Paquetes</title>
+  <title>Ingresos y Gastos (Paquetería)</title>
   <style>
     body{font-family:Arial,system-ui; background:#f4f6f8; margin:0; padding:16px;}
     h1{margin:0 0 12px; text-align:center;}
     .grid{display:grid; gap:12px; grid-template-columns:1fr;}
     .card{background:#fff; border-radius:12px; padding:14px; box-shadow:0 2px 10px rgba(0,0,0,.06);}
     label{font-size:13px; color:#333; display:block; margin-top:10px;}
-    input, button{width:100%; padding:10px; margin-top:6px; border:1px solid #d6dbe1; border-radius:10px; font-size:15px;}
+    input, select, button, textarea{width:100%; padding:10px; margin-top:6px; border:1px solid #d6dbe1; border-radius:10px; font-size:15px; box-sizing:border-box;}
+    textarea{resize:vertical; min-height:42px;}
     button{border:none; background:#2563eb; color:#fff; cursor:pointer;}
     button.secondary{background:#111827;}
     button.danger{background:#dc2626;}
     .row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
     table{width:100%; border-collapse:collapse; margin-top:10px;}
-    th,td{border-bottom:1px solid #e5e7eb; padding:8px; font-size:14px; text-align:left;}
+    th,td{border-bottom:1px solid #e5e7eb; padding:8px; font-size:14px; text-align:left; vertical-align:top;}
     .muted{color:#6b7280; font-size:12px;}
     .small{font-size:12px;}
 
-    /* Totales superiores */
+    /* KPIs */
     .topTotals{display:grid; gap:10px; grid-template-columns:1fr 1fr; margin-top:10px;}
     .kpi{
       background:#f9fafb;
@@ -31,17 +32,20 @@
     .kpi .title{font-size:12px; color:#374151; margin-bottom:6px;}
     .kpi .value{font-size:18px; font-weight:800; letter-spacing:.2px;}
     .kpi.total{background:#eef2ff; border-color:#c7d2fe;}
+    .kpi.expenses{background:#fff7ed; border-color:#fed7aa;}
+    .kpi.net{background:#ecfdf5; border-color:#a7f3d0;}
     .kpi .hint{font-size:11px; color:#6b7280; margin-top:6px;}
 
     @media (min-width: 900px){
       .grid{grid-template-columns: 1fr 1fr;}
       .span2{grid-column: 1 / -1;}
       .topTotals{grid-template-columns:1fr 1fr 1fr 1fr;}
+      .topTotals.second{grid-template-columns:1fr 1fr;}
     }
   </style>
 </head>
 <body>
-  <h1>📦 Ingresos Trabajo</h1>
+  <h1>📦 Ingresos y Gastos</h1>
 
   <!-- CABECERA: Mes + Valor por paquete + KPIs -->
   <div class="card span2">
@@ -56,10 +60,11 @@
       <div>
         <label>Valor por paquete ($)</label>
         <input id="rate" type="number" min="0" step="1" value="1200" />
-        <div class="muted">Por defecto 1200 (igual a tu planilla).</div>
+        <div class="muted">Por defecto 1200.</div>
       </div>
     </div>
 
+    <!-- 4 totales de ingresos -->
     <div class="topTotals">
       <div class="kpi">
         <div class="title">1) Total $ por paquetes</div>
@@ -77,34 +82,48 @@
         <div class="hint">bonos / fundación / otros</div>
       </div>
       <div class="kpi total">
-        <div class="title">4) TOTAL GENERAL</div>
-        <div class="value" id="kpiTotal">$0</div>
+        <div class="title">4) TOTAL INGRESOS</div>
+        <div class="value" id="kpiIncomeTotal">$0</div>
         <div class="hint">1 + 2 + 3</div>
       </div>
     </div>
 
+    <!-- Gastos y neto -->
+    <div class="topTotals second" style="margin-top:10px;">
+      <div class="kpi expenses">
+        <div class="title">Total gastos</div>
+        <div class="value" id="kpiExpensesTotal">$0</div>
+        <div class="hint">suma de todos los gastos del mes</div>
+      </div>
+      <div class="kpi net">
+        <div class="title">NETO (ingresos − gastos)</div>
+        <div class="value" id="kpiNet">$0</div>
+        <div class="hint">Total ingresos − Total gastos</div>
+      </div>
+    </div>
+
     <div class="muted" style="margin-top:10px;">
-      * Uber se registra solo como dato informativo (no se resta del total general).
+      * Uber fue eliminado. Si quieres que sume, agrégalo como “Otro ingreso”.
     </div>
   </div>
 
   <div class="grid">
-    <!-- EXTRAS -->
+    <!-- OTROS INGRESOS -->
     <div class="card">
-      <h3 style="margin:0 0 8px;">Otros ingresos (extras)</h3>
+      <h3 style="margin:0 0 8px;">Otros ingresos</h3>
       <label>Nombre del ingreso</label>
-      <input id="extraLabel" type="text" placeholder="Ej: Fundación / bono / ajuste" />
+      <input id="extraLabel" type="text" placeholder="Ej: Uber / fundación / bono / ajuste" />
 
       <label>Monto ($)</label>
       <input id="extraAmount" type="number" min="0" step="1" placeholder="Ej: 280000" />
 
-      <button class="secondary" onclick="addExtra()">Agregar extra al mes</button>
+      <button class="secondary" onclick="addExtra()">Agregar otro ingreso</button>
       <div id="extrasView" class="small" style="margin-top:10px;"></div>
     </div>
 
-    <!-- AGREGAR DÍA -->
+    <!-- AGREGAR INGRESO DIARIO -->
     <div class="card">
-      <h3 style="margin:0 0 8px;">Agregar registro diario</h3>
+      <h3 style="margin:0 0 8px;">Agregar ingreso diario</h3>
 
       <label>Fecha</label>
       <input id="date" type="date" />
@@ -120,28 +139,65 @@
         </div>
       </div>
 
-      <label>Uber ($) (solo informativo)</label>
-      <input id="uber" type="number" min="0" step="1" placeholder="Ej: 3000" />
-
       <button onclick="addDay()">Guardar día</button>
       <div class="muted" style="margin-top:8px;">Si un campo va vacío, se guarda como 0.</div>
     </div>
 
-    <!-- TABLA + ACCIONES -->
+    <!-- GASTOS -->
+    <div class="card">
+      <h3 style="margin:0 0 8px;">Agregar gasto</h3>
+
+      <label>Fecha</label>
+      <input id="expDate" type="date" />
+
+      <label>Categoría</label>
+      <select id="expCategory">
+        <option value="Gasolina">Gasolina</option>
+        <option value="Aceite">Cambio de aceite</option>
+        <option value="Reparación">Reparación</option>
+        <option value="Peajes/Estacionamiento">Peajes/Estacionamiento</option>
+        <option value="Otros">Otros</option>
+      </select>
+
+      <label>Monto ($)</label>
+      <input id="expAmount" type="number" min="0" step="1" placeholder="Ej: 30000" />
+
+      <label>Nota (opcional)</label>
+      <textarea id="expNote" placeholder="Ej: tanque lleno / cambio filtro / etc."></textarea>
+
+      <button onclick="addExpense()">Guardar gasto</button>
+      <div class="muted" style="margin-top:8px;">Los gastos se suman en “Total gastos” y se calculan en el neto.</div>
+    </div>
+
+    <!-- TABLAS + ACCIONES -->
     <div class="card span2">
       <h3 style="margin:0 0 8px;">Detalle del mes</h3>
 
+      <h4 style="margin:10px 0 6px;">Ingresos diarios</h4>
       <table>
         <thead>
           <tr>
             <th>Fecha</th>
             <th>Paq</th>
             <th>Retiros $</th>
-            <th>Uber $</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="rows"></tbody>
+      </table>
+
+      <h4 style="margin:14px 0 6px;">Gastos</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Categoría</th>
+            <th>Monto</th>
+            <th>Nota</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="expRows"></tbody>
       </table>
 
       <div class="row" style="margin-top:10px;">
@@ -155,8 +211,11 @@
 
 <script>
   // ---- Storage helpers ----
+  // Mantengo las mismas keys de ingresos para NO romper tus datos ya guardados
   const keyFor = (ym) => `ingresos_app_${ym}`;
   const extrasKeyFor = (ym) => `ingresos_app_extras_${ym}`;
+  // Nueva key para gastos
+  const expensesKeyFor = (ym) => `gastos_app_${ym}`;
 
   const fmtCLP = (n) => (Number(n)||0).toLocaleString("es-CL");
 
@@ -196,7 +255,15 @@
     localStorage.setItem(extrasKeyFor(ym), JSON.stringify(extras));
   }
 
-  // ---- Actions ----
+  function loadExpenses(ym){
+    return JSON.parse(localStorage.getItem(expensesKeyFor(ym)) || "[]");
+  }
+
+  function saveExpenses(ym, exps){
+    localStorage.setItem(expensesKeyFor(ym), JSON.stringify(exps));
+  }
+
+  // ---- Ingresos ----
   function addDay(){
     const ym = getMonth();
     const rows = loadRows(ym);
@@ -206,18 +273,15 @@
 
     const packages = Number(document.getElementById("packages").value || 0);
     const withdrawals = Number(document.getElementById("withdrawals").value || 0);
-    const uber = Number(document.getElementById("uber").value || 0);
 
-    rows.push({ date, packages, withdrawals, uber });
+    rows.push({ date, packages, withdrawals });
     rows.sort((a,b)=> a.date.localeCompare(b.date));
     saveRows(ym, rows);
 
-    // opcional: recordar último retiro
+    // recordar último retiro usado
     localStorage.setItem("last_withdrawals_value", String(withdrawals));
 
     document.getElementById("packages").value = "";
-    document.getElementById("uber").value = "";
-
     render();
   }
 
@@ -229,13 +293,14 @@
     render();
   }
 
+  // ---- Otros ingresos ----
   function addExtra(){
     const ym = getMonth();
     const label = (document.getElementById("extraLabel").value || "").trim();
     const amount = Number(document.getElementById("extraAmount").value || 0);
 
     if(!label || amount<=0){
-      alert("Completa nombre y monto del extra");
+      alert("Completa nombre y monto del otro ingreso");
       return;
     }
 
@@ -256,11 +321,47 @@
     render();
   }
 
+  // ---- Gastos ----
+  function addExpense(){
+    const ym = getMonth();
+    const exps = loadExpenses(ym);
+
+    const date = document.getElementById("expDate").value;
+    if(!date){ alert("Selecciona una fecha para el gasto"); return; }
+
+    const category = document.getElementById("expCategory").value;
+    const amount = Number(document.getElementById("expAmount").value || 0);
+    const note = (document.getElementById("expNote").value || "").trim();
+
+    if(amount <= 0){
+      alert("Ingresa un monto de gasto mayor a 0");
+      return;
+    }
+
+    exps.push({ date, category, amount, note });
+    exps.sort((a,b)=> a.date.localeCompare(b.date));
+    saveExpenses(ym, exps);
+
+    document.getElementById("expAmount").value = "";
+    document.getElementById("expNote").value = "";
+    render();
+  }
+
+  function deleteExpense(idx){
+    const ym = getMonth();
+    const exps = loadExpenses(ym);
+    exps.splice(idx,1);
+    saveExpenses(ym, exps);
+    render();
+  }
+
+  // ---- Acciones generales ----
   function clearMonth(){
     const ym = getMonth();
-    if(!confirm(`¿Seguro que quieres borrar TODO el mes ${ym}?`)) return;
+    if(!confirm(`¿Seguro que quieres borrar TODO el mes ${ym}? (ingresos, otros ingresos y gastos)`)) return;
     localStorage.removeItem(keyFor(ym));
     localStorage.removeItem(extrasKeyFor(ym));
+    localStorage.removeItem(expensesKeyFor(ym));
     render();
   }
 
@@ -268,23 +369,34 @@
     const ym = getMonth();
     const rows = loadRows(ym);
     const extras = loadExtras(ym);
+    const exps = loadExpenses(ym);
     const rate = getRate();
 
-    let csv = "Mes,Fecha,CantPaquetes,Retiros,Uber,ValorPorPaquete\n";
+    let csv = "== INGRESOS DIARIOS ==\n";
+    csv += "Mes,Fecha,CantPaquetes,Retiros,ValorPorPaquete\n";
     rows.forEach(r=>{
-      csv += `${ym},${r.date},${r.packages},${r.withdrawals},${r.uber},${rate}\n`;
+      // si venías de una versión anterior que guardaba "uber", la ignoramos sin romper nada
+      csv += `${ym},${r.date},${Number(r.packages||0)},${Number(r.withdrawals||0)},${rate}\n`;
     });
 
-    csv += "\nExtras\nNombre,Monto\n";
+    csv += "\n== OTROS INGRESOS ==\n";
+    csv += "Nombre,Monto\n";
     extras.forEach(e=>{
-      csv += `${e.label},${e.amount}\n`;
+      csv += `${e.label},${Number(e.amount||0)}\n`;
+    });
+
+    csv += "\n== GASTOS ==\n";
+    csv += "Fecha,Categoria,Monto,Nota\n";
+    exps.forEach(g=>{
+      const safeNote = (g.note||"").replaceAll("\n"," ").replaceAll(","," ");
+      csv += `${g.date},${g.category},${Number(g.amount||0)},${safeNote}\n`;
     });
 
     const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `ingresos_${ym}.csv`;
+    a.download = `ingresos_gastos_${ym}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -292,26 +404,44 @@
   // ---- Render ----
   function render(){
     const ym = getMonth();
-    const rows = loadRows(ym);
-    const extras = loadExtras(ym);
     const rate = getRate();
 
-    // Table
+    const rows = loadRows(ym);
+    const extras = loadExtras(ym);
+    const exps = loadExpenses(ym);
+
+    // Tabla ingresos
     const tbody = document.getElementById("rows");
     tbody.innerHTML = "";
     rows.forEach((r,idx)=>{
+      const packages = Number(r.packages||0);
+      const withdrawals = Number(r.withdrawals||0);
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${r.date}</td>
-        <td>${r.packages}</td>
-        <td>$${fmtCLP(r.withdrawals)}</td>
-        <td>$${fmtCLP(r.uber)}</td>
+        <td>${packages}</td>
+        <td>$${fmtCLP(withdrawals)}</td>
         <td><button class="danger" style="width:auto;padding:8px 10px;border-radius:10px;" onclick="deleteRow(${idx})">Eliminar</button></td>
       `;
       tbody.appendChild(tr);
     });
 
-    // Extras view
+    // Tabla gastos
+    const expTbody = document.getElementById("expRows");
+    expTbody.innerHTML = "";
+    exps.forEach((g,idx)=>{
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${g.date}</td>
+        <td>${g.category}</td>
+        <td>$${fmtCLP(g.amount)}</td>
+        <td>${(g.note||"")}</td>
+        <td><button class="danger" style="width:auto;padding:8px 10px;border-radius:10px;" onclick="deleteExpense(${idx})">Eliminar</button></td>
+      `;
+      expTbody.appendChild(tr);
+    });
+
+    // Vista otros ingresos
     const extrasView = document.getElementById("extrasView");
     if(extras.length === 0){
       extrasView.innerHTML = `<span class="muted">Sin otros ingresos en este mes.</span>`;
@@ -326,32 +456,36 @@
       `).join("");
     }
 
-    // KPIs (lo que pediste)
-    const totalPackages = rows.reduce((s,r)=> s + (Number(r.packages)||0), 0);
-    const totalByPackages = totalPackages * rate;
+    // Cálculos ingresos
+    const totalPackagesCount = rows.reduce((s,r)=> s + Number(r.packages||0), 0);
+    const totalByPackages = totalPackagesCount * rate;
+    const totalWithdrawals = rows.reduce((s,r)=> s + Number(r.withdrawals||0), 0);
+    const totalExtras = extras.reduce((s,e)=> s + Number(e.amount||0), 0);
+    const totalIncome = totalByPackages + totalWithdrawals + totalExtras;
 
-    const totalWithdrawals = rows.reduce((s,r)=> s + (Number(r.withdrawals)||0), 0);
-    const totalUber = rows.reduce((s,r)=> s + (Number(r.uber)||0), 0);
+    // Cálculos gastos y neto
+    const totalExpenses = exps.reduce((s,g)=> s + Number(g.amount||0), 0);
+    const net = totalIncome - totalExpenses;
 
-    const totalExtras = extras.reduce((s,e)=> s + (Number(e.amount)||0), 0);
-
-    const totalGeneral = totalByPackages + totalWithdrawals + totalExtras;
-
+    // KPIs
     document.getElementById("kpiPackages").innerText = `$${fmtCLP(totalByPackages)}`;
     document.getElementById("kpiWithdrawals").innerText = `$${fmtCLP(totalWithdrawals)}`;
     document.getElementById("kpiExtras").innerText = `$${fmtCLP(totalExtras)}`;
-    document.getElementById("kpiTotal").innerText = `$${fmtCLP(totalGeneral)}`;
+    document.getElementById("kpiIncomeTotal").innerText = `$${fmtCLP(totalIncome)}`;
+    document.getElementById("kpiExpensesTotal").innerText = `$${fmtCLP(totalExpenses)}`;
+    document.getElementById("kpiNet").innerText = `$${fmtCLP(net)}`;
 
-    // info pie
-    const daysWorked = rows.filter(r => Number(r.packages) > 0).length;
+    // Info pie
+    const daysWorked = rows.filter(r => Number(r.packages||0) > 0).length;
     document.getElementById("footInfo").innerText =
-      `Días trabajados (paq>0): ${daysWorked} | Total paquetes: ${totalPackages} | Total Uber (informativo): $${fmtCLP(totalUber)}`;
+      `Días trabajados (paq>0): ${daysWorked} | Total paquetes: ${totalPackagesCount} | Registros de gastos: ${exps.length}`;
   }
 
-  // Init defaults
+  // Init
   (function init(){
     document.getElementById("month").value = monthISO();
     document.getElementById("date").value = todayISO();
+    document.getElementById("expDate").value = todayISO();
 
     // recordar el último retiro usado
     const lastW = localStorage.getItem("last_withdrawals_value");
@@ -365,3 +499,8 @@
 </script>
 </body>
 </html>
+
+</script>
+</body>
+</html>
+
