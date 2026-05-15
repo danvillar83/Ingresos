@@ -123,8 +123,46 @@
   const SUGGESTIONS = { weekday: 1350, saturday: 1450, sunday: 1650 };
   const fmt = (n) => (Number(n)||0).toLocaleString("es-CL");
 
-  // USAMOS LA CLAVE ORIGINAL db_total_ PARA MANTENER TUS DATOS
-  const getDB = (ym) => JSON.parse(localStorage.getItem(`db_total_${ym}`) || "[]");
+  // FUNCIÓN MEJORADA: Busca en todas las llaves posibles para no perder datos
+  function getDB(ym) {
+    // Intentar con la clave de la versión actual
+    let data = localStorage.getItem(`db_total_${ym}`);
+    
+    // Si no hay nada, intentar con la clave de la versión intermedia v2
+    if (!data) data = localStorage.getItem(`db_total_v2_${ym}`);
+    
+    // Si sigue sin haber nada, intentar con la clave original del primer archivo (db_records)
+    if (!data) {
+        const oldRecords = localStorage.getItem(`db_records_${ym}`);
+        if (oldRecords) {
+            // Migrar formato antiguo al nuevo sistema de una sola lista
+            let parsedOld = JSON.parse(oldRecords);
+            // También buscamos si hay gastos antiguos
+            const oldExps = JSON.parse(localStorage.getItem(`db_expenses_${ym}`) || "[]");
+            
+            let combined = parsedOld.map(r => ({
+                type: 'day',
+                date: r.date,
+                pks: Number(r.packages || 0),
+                rate: Number(r.rate || 0),
+                wtd: Number(r.withdrawals || 0)
+            }));
+            
+            oldExps.forEach(e => {
+                combined.push({
+                    type: 'expense',
+                    date: e.date,
+                    amount: Number(e.amount || 0),
+                    note: e.note || "Gasto antiguo"
+                });
+            });
+            return combined;
+        }
+    }
+    
+    return JSON.parse(data || "[]");
+  }
+
   const saveDB = (ym, data) => localStorage.setItem(`db_total_${ym}`, JSON.stringify(data));
 
   function suggestRate(dateString) {
@@ -134,14 +172,12 @@
     const month = parseInt(parts[1]);
     const day = new Date(parts[0], parts[1]-1, parts[2]).getDay();
 
-    // SOLO SUGIERE PRECIOS NUEVOS SI ES MAYO 2026 EN ADELANTE
     if (year > 2026 || (year === 2026 && month >= 5)) {
         let rate = SUGGESTIONS.weekday;
         if(day === 0) rate = SUGGESTIONS.sunday;
         else if(day === 6) rate = SUGGESTIONS.saturday;
         document.getElementById("dayRate").value = rate;
     } else {
-        // Para meses anteriores, podrías dejarlo en blanco o un valor antiguo si lo recuerdas
         document.getElementById("dayRate").value = ""; 
     }
   }
