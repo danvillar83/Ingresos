@@ -19,21 +19,35 @@
     table{width:100%; border-collapse:collapse; margin-top:10px;}
     th,td{border-bottom:1px solid #e5e7eb; padding:10px 8px; font-size:13px; text-align:left;}
     th{background: #f9fafb; color: #6b7280; font-size: 11px; text-transform: uppercase;}
+    
+    /* KPIs Mejorados */
     .kpi-container{display:grid; gap:10px; grid-template-columns: 1fr 1fr; margin-bottom:15px;}
     .kpi{background:#f9fafb; border:1px solid #e5e7eb; border-radius:14px; padding:12px;}
     .kpi .title{font-size:11px; color:#374151; font-weight: bold;}
     .kpi .value{font-size:1.1rem; font-weight:800;}
-    .kpi.net{background:#ecfdf5; border-color:#a7f3d0; grid-column: span 2;}
-    .muted{color:#6b7280; font-size:12px;}
+    .kpi.gross{background:#eff6ff; border-color:#bfdbfe;}
+    .kpi.net{background:#ecfdf5; border-color:#a7f3d0;}
+    
+    .stats-footer {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 2px dashed #e5e7eb;
+      text-align: center;
+    }
+    .stat-item .label { font-size: 11px; color: #6b7280; text-transform: uppercase; }
+    .stat-item .num { font-size: 1.2rem; font-weight: 700; color: #1f2937; }
+
     @media (min-width: 900px){ 
       .grid{grid-template-columns: 1fr 1fr;} 
-      .kpi-container{grid-template-columns: repeat(4, 1fr);}
-      .kpi.net{grid-column: span 1;}
+      .kpi-container{grid-template-columns: repeat(6, 1fr);}
     }
   </style>
 </head>
 <body>
-  <h1>📦 Control y Cuadratura de Retiros</h1>
+  <h1>📦 Control y Cuadratura</h1>
 
   <div class="card">
     <label>Seleccionar Mes</label>
@@ -45,15 +59,23 @@
         <div class="value" id="kpiPackages">$0</div>
       </div>
       <div class="kpi">
-        <div class="title">RETIROS / BONOS</div>
+        <div class="title">RETIROS</div>
         <div class="value" id="kpiWithdrawals">$0</div>
       </div>
       <div class="kpi">
-        <div class="title">GASTOS</div>
+        <div class="title">BONOS / OTROS</div>
+        <div class="value" id="kpiExtras">$0</div>
+      </div>
+      <div class="kpi gross">
+        <div class="title">SALDO BRUTO</div>
+        <div class="value" id="kpiGross">$0</div>
+      </div>
+      <div class="kpi">
+        <div class="title" style="color:#dc2626">GASTOS</div>
         <div class="value" id="kpiExpenses" style="color:#dc2626">$0</div>
       </div>
       <div class="kpi net">
-        <div class="title">NETO FINAL</div>
+        <div class="title" style="color:#059669">NETO FINAL</div>
         <div class="value" id="kpiNet" style="color:#059669">$0</div>
       </div>
     </div>
@@ -74,43 +96,41 @@
           <input id="dayRate" type="number" />
         </div>
       </div>
-      <label>Monto Retiro de este día ($)</label>
+      <label>Monto Retiro ($)</label>
       <input id="withdrawals" type="number" placeholder="0" />
-      <button onclick="addDayEntry()" style="margin-top:15px;">Guardar Paquetes</button>
+      <button onclick="addDayEntry()" style="margin-top:15px;">Guardar Día</button>
     </div>
 
     <div class="card">
-      <h3 style="margin:0;">2. Gastos y Otros Movimientos</h3>
+      <h3 style="margin:0;">2. Gastos y Bonos</h3>
       <label>Tipo</label>
       <select id="entryType">
         <option value="expense">Gasto (Bencina, Peaje, etc)</option>
-        <option value="extra">Otro Ingreso (Bono, Uber, etc)</option>
+        <option value="extra">Bono / Otro Ingreso</option>
       </select>
       <label>Monto ($)</label>
       <input id="amount" type="number" placeholder="0" />
       <label>Descripción</label>
-      <input id="note" type="text" placeholder="Ej: Bono por cumplimiento" />
-      <button class="secondary" onclick="addGenericEntry()" style="margin-top:15px;">Agregar</button>
+      <input id="note" type="text" placeholder="Ej: Bono cumplimiento" />
+      <button class="secondary" onclick="addGenericEntry()" style="margin-top:15px;">Agregar Registro</button>
     </div>
 
     <div class="card">
-      <h3 style="margin:0; color:#2563eb;">3. Cotejo Diario de Retiros</h3>
-      <p class="muted">Suma de retiros agrupados por día para revisar con la empresa.</p>
+      <h3 style="margin:0; color:#2563eb;">3. Cotejo de Retiros</h3>
       <table>
-        <thead><tr><th>Fecha</th><th>Total Retiro $</th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Retiro Diario</th></tr></thead>
         <tbody id="withdrawalTable"></tbody>
       </table>
     </div>
 
     <div class="card">
-      <h3 style="margin:0 0 10px;">4. Herramientas y Datos</h3>
+      <h3 style="margin:0 0 10px;">4. Historial y Herramientas</h3>
       <div class="row" style="margin-bottom: 15px;">
-         <button class="success" onclick="document.getElementById('importFile').click()">📥 Importar CSV</button>
-         <button class="secondary" onclick="exportCSV()">📤 Exportar CSV</button>
+         <button class="success" onclick="document.getElementById('importFile').click()">Importar</button>
+         <button class="secondary" onclick="exportCSV()">Exportar</button>
          <input type="file" id="importFile" style="display:none" accept=".csv" onchange="importCSV(this)" />
       </div>
       
-      <h3 style="margin:0 0 10px;">Historial de Movimientos</h3>
       <div style="overflow-x: auto;">
         <table>
           <thead>
@@ -119,7 +139,23 @@
           <tbody id="mainTable"></tbody>
         </table>
       </div>
-      <button class="danger" onclick="clearMonth()" style="margin-top:20px;">Borrar Mes Actual</button>
+      
+      <div class="stats-footer">
+        <div class="stat-item">
+          <div class="label">Días Trabajados</div>
+          <div class="num" id="statDays">0</div>
+        </div>
+        <div class="stat-item">
+          <div class="label">Total Paquetes</div>
+          <div class="num" id="statTotalPks">0</div>
+        </div>
+        <div class="stat-item">
+          <div class="label">Promedio Diario</div>
+          <div class="num" id="statAvg">0</div>
+        </div>
+      </div>
+
+      <button class="danger" onclick="clearMonth()" style="margin-top:20px;">Borrar Mes</button>
     </div>
   </div>
 
@@ -127,24 +163,22 @@
   const SUGGESTIONS = { weekday: 1350, saturday: 1450, sunday: 1650 };
   const fmt = (n) => (Number(n)||0).toLocaleString("es-CL");
 
-  const getDB = (ym) => JSON.parse(localStorage.getItem(`db_total_${ym}`) || "[]");
+  function getDB(ym) {
+    let data = localStorage.getItem(`db_total_${ym}`);
+    if (!data) data = localStorage.getItem(`db_total_v2_${ym}`);
+    return JSON.parse(data || "[]");
+  }
+
   const saveDB = (ym, data) => localStorage.setItem(`db_total_${ym}`, JSON.stringify(data));
 
   function suggestRate(dateString) {
     if(!dateString) return;
     const parts = dateString.split('-');
-    const year = parseInt(parts[0]);
-    const month = parseInt(parts[1]);
-    const day = new Date(parts[0], parts[1]-1, parts[2]).getDay();
-
-    if (year > 2026 || (year === 2026 && month >= 5)) {
-        let rate = SUGGESTIONS.weekday;
-        if(day === 0) rate = SUGGESTIONS.sunday;
-        else if(day === 6) rate = SUGGESTIONS.saturday;
-        document.getElementById("dayRate").value = rate;
-    } else {
-        document.getElementById("dayRate").value = ""; 
-    }
+    const day = new Date(parts, parts-1, parts).getDay();
+    let rate = SUGGESTIONS.weekday;
+    if(day === 0) rate = SUGGESTIONS.sunday;
+    else if(day === 6) rate = SUGGESTIONS.saturday;
+    document.getElementById("dayRate").value = rate;
   }
 
   function addDayEntry() {
@@ -159,7 +193,6 @@
     db.sort((a,b) => a.date.localeCompare(b.date));
     saveDB(ym, db);
     document.getElementById("packages").value = "";
-    document.getElementById("withdrawals").value = "";
     render();
   }
 
@@ -168,23 +201,14 @@
     const type = document.getElementById("entryType").value;
     const amount = Number(document.getElementById("amount").value || 0);
     const note = document.getElementById("note").value || "Sin nota";
-    const date = document.getElementById("date").value || new Date().toISOString().split('T')[0];
-    if(!ym || amount <= 0) return alert("Monto no válido");
+    const date = document.getElementById("date").value || new Date().toISOString().split('T');
+    if(!ym || amount <= 0) return alert("Monto inválido");
     const db = getDB(ym);
     db.push({ type, date, amount, note });
     db.sort((a,b) => a.date.localeCompare(b.date));
     saveDB(ym, db);
     document.getElementById("amount").value = "";
     document.getElementById("note").value = "";
-    render();
-  }
-
-  function deleteItem(idx) {
-    if(!confirm("¿Eliminar?")) return;
-    const ym = document.getElementById("month").value;
-    const db = getDB(ym);
-    db.splice(idx, 1);
-    saveDB(ym, db);
     render();
   }
 
@@ -195,7 +219,9 @@
     const withdrawalTable = document.getElementById("withdrawalTable");
     mainTable.innerHTML = "";
     withdrawalTable.innerHTML = "";
-    let totalPksMoney = 0, totalOtherIncome = 0, totalExpenses = 0;
+
+    let totalPksMoney = 0, totalWithdrawals = 0, totalExtras = 0, totalExpenses = 0, totalPksCount = 0;
+    const daysWorkedSet = new Set();
     const dailyWithdrawals = {};
 
     db.forEach((item, idx) => {
@@ -204,15 +230,17 @@
 
       if(item.type === 'day') {
         const sub = item.pks * (item.rate || 0);
-        detail = `📦 ${item.pks} paq (x$${item.rate || 0})`;
+        detail = `📦 ${item.pks} paq`;
         inc = sub + item.wtd;
         totalPksMoney += sub;
-        totalOtherIncome += item.wtd;
+        totalWithdrawals += item.wtd;
+        totalPksCount += item.pks;
+        if(item.pks > 0) daysWorkedSet.add(item.date);
         dailyWithdrawals[item.date] += item.wtd;
       } else if(item.type === 'extra') {
         detail = `➕ ${item.note}`;
         inc = item.amount;
-        totalOtherIncome += item.amount;
+        totalExtras += item.amount;
       } else {
         detail = `⛽ ${item.note}`;
         exp = item.amount;
@@ -231,23 +259,43 @@
     });
 
     Object.keys(dailyWithdrawals).sort().forEach(date => {
-      const amount = dailyWithdrawals[date];
-      if(amount > 0) {
+      if(dailyWithdrawals[date] > 0) {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td><b>${date.split('-').reverse().join('/')}</b></td><td style="color:#2563eb; font-weight:bold">$${fmt(amount)}</td>`;
+        tr.innerHTML = `<td>${date.split('-').reverse().join('/')}</td><td>$${fmt(dailyWithdrawals[date])}</td>`;
         withdrawalTable.appendChild(tr);
       }
     });
 
+    const grossBalance = totalPksMoney + totalWithdrawals + totalExtras;
+    const netFinal = grossBalance - totalExpenses;
+    const daysWorked = daysWorkedSet.size;
+    const avgPks = daysWorked > 0 ? (totalPksCount / daysWorked).toFixed(1) : 0;
+
     document.getElementById("kpiPackages").innerText = "$" + fmt(totalPksMoney);
-    document.getElementById("kpiWithdrawals").innerText = "$" + fmt(totalOtherIncome);
+    document.getElementById("kpiWithdrawals").innerText = "$" + fmt(totalWithdrawals);
+    document.getElementById("kpiExtras").innerText = "$" + fmt(totalExtras);
+    document.getElementById("kpiGross").innerText = "$" + fmt(grossBalance);
     document.getElementById("kpiExpenses").innerText = "$" + fmt(totalExpenses);
-    document.getElementById("kpiNet").innerText = "$" + fmt((totalPksMoney + totalOtherIncome) - totalExpenses);
+    document.getElementById("kpiNet").innerText = "$" + fmt(netFinal);
+    
+    // Stats al final
+    document.getElementById("statDays").innerText = daysWorked;
+    document.getElementById("statTotalPks").innerText = totalPksCount;
+    document.getElementById("statAvg").innerText = avgPks;
+  }
+
+  function deleteItem(idx) {
+    if(!confirm("¿Eliminar?")) return;
+    const ym = document.getElementById("month").value;
+    const db = getDB(ym);
+    db.splice(idx, 1);
+    saveDB(ym, db);
+    render();
   }
 
   function clearMonth() {
     const ym = document.getElementById("month").value;
-    if(confirm("¿Borrar mes?")) { saveDB(ym, []); render(); }
+    if(confirm("¿Borrar todo el mes?")) { saveDB(ym, []); render(); }
   }
 
   function exportCSV() {
@@ -257,8 +305,7 @@
     db.forEach(i => {
       const inc = i.type === 'day' ? (i.pks*(i.rate||0))+i.wtd : (i.type==='extra'?i.amount:0);
       const exp = i.type === 'expense' ? i.amount : 0;
-      const note = i.type === 'day' ? `${i.pks} paq` : i.note;
-      csv += `${i.date},${i.type},"${note}",${inc},${exp}\n`;
+      csv += `${i.date},${i.type},"${i.note||(i.pks+' paq')}",${inc},${exp}\n`;
     });
     const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
     const url = URL.createObjectURL(blob);
@@ -267,50 +314,25 @@
   }
 
   function importCSV(input) {
-    const file = input.files[0];
+    const file = input.files;
     if (!file) return;
     const reader = new FileReader();
     reader.onload = function(e) {
-        const text = e.target.result;
-        const lines = text.split('\n');
+        const lines = e.target.result.split('\n');
         const monthsData = {};
-
-        // Empezamos desde i=1 para saltar cabecera
         for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-            
-            // Separar por comas (considerando que las notas pueden tener comillas)
-            const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            const parts = lines[i].split(',');
             if (parts.length < 5) continue;
-
-            const date = parts[0]; // YYYY-MM-DD
-            const type = parts[1];
-            const noteRaw = parts[2].replace(/"/g, '');
-            const inc = Number(parts[3] || 0);
-            const exp = Number(parts[4] || 0);
-
-            const ym = date.substring(0, 7);
+            const date = parts, type = parts, ym = date.substring(0,7);
             if (!monthsData[ym]) monthsData[ym] = [];
-
             if (type === 'day') {
-                const pksMatch = noteRaw.match(/(\d+)/);
-                const pks = pksMatch ? Number(pksMatch[0]) : 0;
-                // Calculamos un estimado del retiro si no hay desglose
-                // Asumimos que lo que no es paquete es retiro (complicado sin precio unitario exacto)
-                // Por ahora lo guardamos como un registro limpio
-                monthsData[ym].push({ type: 'day', date, pks, rate: 0, wtd: inc });
+                monthsData[ym].push({ type: 'day', date, pks: parseInt(parts)||0, rate: 0, wtd: parseInt(parts)||0 });
             } else {
-                monthsData[ym].push({ type, date, amount: (type === 'expense' ? exp : inc), note: noteRaw });
+                monthsData[ym].push({ type, date, amount: parseInt(parts[type==='expense'?4:3])||0, note: parts });
             }
         }
-
-        // Guardar en localStorage
-        for (const ym in monthsData) {
-            saveDB(ym, monthsData[ym]);
-        }
-        alert("Importación completada. Se han recuperado los datos del archivo.");
-        render();
+        for (const ym in monthsData) saveDB(ym, monthsData[ym]);
+        alert("Datos importados."); render();
     };
     reader.readAsText(file);
   }
@@ -318,9 +340,8 @@
   (function init(){
     const now = new Date();
     document.getElementById("month").value = now.toISOString().substring(0,7);
-    const today = now.toISOString().split('T')[0];
-    document.getElementById("date").value = today;
-    suggestRate(today);
+    document.getElementById("date").value = now.toISOString().split('T');
+    suggestRate(document.getElementById("date").value);
     render();
   })();
 </script>
