@@ -14,6 +14,7 @@
     button{border:none; background:#2563eb; color:#fff; cursor:pointer; font-weight: 600;}
     button.secondary{background:#111827;}
     button.danger{background:#dc2626;}
+    button.success{background:#059669;}
     .row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
     table{width:100%; border-collapse:collapse; margin-top:10px;}
     th,td{border-bottom:1px solid #e5e7eb; padding:10px 8px; font-size:13px; text-align:left;}
@@ -26,7 +27,6 @@
     .muted{color:#6b7280; font-size:12px;}
     @media (min-width: 900px){ 
       .grid{grid-template-columns: 1fr 1fr;} 
-      .span2{grid-column: 1 / -1;}
       .kpi-container{grid-template-columns: repeat(4, 1fr);}
       .kpi.net{grid-column: span 1;}
     }
@@ -103,7 +103,14 @@
     </div>
 
     <div class="card">
-      <h3 style="margin:0 0 10px;">4. Historial de Movimientos</h3>
+      <h3 style="margin:0 0 10px;">4. Herramientas y Datos</h3>
+      <div class="row" style="margin-bottom: 15px;">
+         <button class="success" onclick="document.getElementById('importFile').click()">📥 Importar CSV</button>
+         <button class="secondary" onclick="exportCSV()">📤 Exportar CSV</button>
+         <input type="file" id="importFile" style="display:none" accept=".csv" onchange="importCSV(this)" />
+      </div>
+      
+      <h3 style="margin:0 0 10px;">Historial de Movimientos</h3>
       <div style="overflow-x: auto;">
         <table>
           <thead>
@@ -112,10 +119,7 @@
           <tbody id="mainTable"></tbody>
         </table>
       </div>
-      <div class="row" style="margin-top:20px;">
-        <button class="secondary" onclick="exportCSV()">Exportar CSV</button>
-        <button class="danger" onclick="clearMonth()">Borrar Mes</button>
-      </div>
+      <button class="danger" onclick="clearMonth()" style="margin-top:20px;">Borrar Mes Actual</button>
     </div>
   </div>
 
@@ -123,46 +127,7 @@
   const SUGGESTIONS = { weekday: 1350, saturday: 1450, sunday: 1650 };
   const fmt = (n) => (Number(n)||0).toLocaleString("es-CL");
 
-  // FUNCIÓN MEJORADA: Busca en todas las llaves posibles para no perder datos
-  function getDB(ym) {
-    // Intentar con la clave de la versión actual
-    let data = localStorage.getItem(`db_total_${ym}`);
-    
-    // Si no hay nada, intentar con la clave de la versión intermedia v2
-    if (!data) data = localStorage.getItem(`db_total_v2_${ym}`);
-    
-    // Si sigue sin haber nada, intentar con la clave original del primer archivo (db_records)
-    if (!data) {
-        const oldRecords = localStorage.getItem(`db_records_${ym}`);
-        if (oldRecords) {
-            // Migrar formato antiguo al nuevo sistema de una sola lista
-            let parsedOld = JSON.parse(oldRecords);
-            // También buscamos si hay gastos antiguos
-            const oldExps = JSON.parse(localStorage.getItem(`db_expenses_${ym}`) || "[]");
-            
-            let combined = parsedOld.map(r => ({
-                type: 'day',
-                date: r.date,
-                pks: Number(r.packages || 0),
-                rate: Number(r.rate || 0),
-                wtd: Number(r.withdrawals || 0)
-            }));
-            
-            oldExps.forEach(e => {
-                combined.push({
-                    type: 'expense',
-                    date: e.date,
-                    amount: Number(e.amount || 0),
-                    note: e.note || "Gasto antiguo"
-                });
-            });
-            return combined;
-        }
-    }
-    
-    return JSON.parse(data || "[]");
-  }
-
+  const getDB = (ym) => JSON.parse(localStorage.getItem(`db_total_${ym}`) || "[]");
   const saveDB = (ym, data) => localStorage.setItem(`db_total_${ym}`, JSON.stringify(data));
 
   function suggestRate(dateString) {
@@ -299,6 +264,55 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = `reporte_${ym}.csv`; a.click();
+  }
+
+  function importCSV(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        const lines = text.split('\n');
+        const monthsData = {};
+
+        // Empezamos desde i=1 para saltar cabecera
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            // Separar por comas (considerando que las notas pueden tener comillas)
+            const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            if (parts.length < 5) continue;
+
+            const date = parts[0]; // YYYY-MM-DD
+            const type = parts[1];
+            const noteRaw = parts[2].replace(/"/g, '');
+            const inc = Number(parts[3] || 0);
+            const exp = Number(parts[4] || 0);
+
+            const ym = date.substring(0, 7);
+            if (!monthsData[ym]) monthsData[ym] = [];
+
+            if (type === 'day') {
+                const pksMatch = noteRaw.match(/(\d+)/);
+                const pks = pksMatch ? Number(pksMatch[0]) : 0;
+                // Calculamos un estimado del retiro si no hay desglose
+                // Asumimos que lo que no es paquete es retiro (complicado sin precio unitario exacto)
+                // Por ahora lo guardamos como un registro limpio
+                monthsData[ym].push({ type: 'day', date, pks, rate: 0, wtd: inc });
+            } else {
+                monthsData[ym].push({ type, date, amount: (type === 'expense' ? exp : inc), note: noteRaw });
+            }
+        }
+
+        // Guardar en localStorage
+        for (const ym in monthsData) {
+            saveDB(ym, monthsData[ym]);
+        }
+        alert("Importación completada. Se han recuperado los datos del archivo.");
+        render();
+    };
+    reader.readAsText(file);
   }
 
   (function init(){
