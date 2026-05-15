@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Control Paquetería y Cuadratura</title>
+  <style>
+    body{font-family:Arial,system-ui; background:#f4f6f8; margin:0; padding:16px; color: #1f2937;}
+    h1{margin:0 0 12px; text-align:center; font-size: 1.5rem;}
+    .grid{display:grid; gap:12px; grid-template-columns:1fr;}
+    .card{background:#fff; border-radius:12px; padding:14px; box-shadow:0 2px 10px rgba(0,0,0,.06); margin-bottom:12px;}
+    label{font-size:13px; color:#4b5563; display:block; margin-top:10px; font-weight: 600;}
+    input, select, button{width:100%; padding:10px; margin-top:6px; border:1px solid #d6dbe1; border-radius:10px; font-size:15px; box-sizing:border-box;}
+    button{border:none; background:#2563eb; color:#fff; cursor:pointer; font-weight: 600;}
+    button.secondary{background:#111827;}
+    button.danger{background:#dc2626;}
+    .row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+    table{width:100%; border-collapse:collapse; margin-top:10px;}
+    th,td{border-bottom:1px solid #e5e7eb; padding:10px 8px; font-size:13px; text-align:left;}
+    th{background: #f9fafb; color: #6b7280; font-size: 11px; text-transform: uppercase;}
+    .kpi-container{display:grid; gap:10px; grid-template-columns: 1fr 1fr; margin-bottom:15px;}
+    .kpi{background:#f9fafb; border:1px solid #e5e7eb; border-radius:14px; padding:12px;}
+    .kpi .title{font-size:11px; color:#374151; font-weight: bold;}
+    .kpi .value{font-size:1.1rem; font-weight:800;}
+    .kpi.net{background:#ecfdf5; border-color:#a7f3d0; grid-column: span 2;}
+    .muted{color:#6b7280; font-size:12px;}
+    @media (min-width: 900px){ 
+      .grid{grid-template-columns: 1fr 1fr;} 
+      .span2{grid-column: 1 / -1;}
+      .kpi-container{grid-template-columns: repeat(4, 1fr);}
+      .kpi.net{grid-column: span 1;}
+    }
+  </style>
+</head>
+<body>
+  <h1>📦 Control y Cuadratura de Retiros</h1>
+
+  <div class="card">
+    <label>Seleccionar Mes</label>
+    <input id="month" type="month" onchange="render()" />
+    
+    <div class="kpi-container" style="margin-top:15px;">
+      <div class="kpi">
+        <div class="title">INGRESOS PAQ.</div>
+        <div class="value" id="kpiPackages">$0</div>
+      </div>
+      <div class="kpi">
+        <div class="title">RETIROS / BONOS</div>
+        <div class="value" id="kpiWithdrawals">$0</div>
+      </div>
+      <div class="kpi">
+        <div class="title">GASTOS</div>
+        <div class="value" id="kpiExpenses" style="color:#dc2626">$0</div>
+      </div>
+      <div class="kpi net">
+        <div class="title">NETO FINAL</div>
+        <div class="value" id="kpiNet" style="color:#059669">$0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3 style="margin:0;">1. Registro de Paquetes</h3>
+      <label>Fecha</label>
+      <input id="date" type="date" onchange="suggestRate(this.value)" />
+      <div class="row">
+        <div>
+          <label>Cant. Paquetes</label>
+          <input id="packages" type="number" placeholder="0" />
+        </div>
+        <div>
+          <label>Precio Unitario ($)</label>
+          <input id="dayRate" type="number" />
+        </div>
+      </div>
+      <label>Monto Retiro de este día ($)</label>
+      <input id="withdrawals" type="number" placeholder="0" />
+      <button onclick="addDayEntry()" style="margin-top:15px;">Guardar Paquetes</button>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0;">2. Gastos y Otros Movimientos</h3>
+      <label>Tipo</label>
+      <select id="entryType">
+        <option value="expense">Gasto (Bencina, Peaje, etc)</option>
+        <option value="extra">Otro Ingreso (Bono, Uber, etc)</option>
+      </select>
+      <label>Monto ($)</label>
+      <input id="amount" type="number" placeholder="0" />
+      <label>Descripción</label>
+      <input id="note" type="text" placeholder="Ej: Bono por cumplimiento" />
+      <button class="secondary" onclick="addGenericEntry()" style="margin-top:15px;">Agregar</button>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0; color:#2563eb;">3. Cotejo Diario de Retiros</h3>
+      <p class="muted">Suma de retiros agrupados por día para revisar con la empresa.</p>
+      <table>
+        <thead><tr><th>Fecha</th><th>Total Retiro $</th></tr></thead>
+        <tbody id="withdrawalTable"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 10px;">4. Historial de Movimientos</h3>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr><th>Fecha</th><th>Concepto</th><th>Ingreso</th><th>Egreso</th><th></th></tr>
+          </thead>
+          <tbody id="mainTable"></tbody>
+        </table>
+      </div>
+      <div class="row" style="margin-top:20px;">
+        <button class="secondary" onclick="exportCSV()">Exportar CSV</button>
+        <button class="danger" onclick="clearMonth()">Borrar Mes</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const SUGGESTIONS = { weekday: 1350, saturday: 1450, sunday: 1650 };
+  const fmt = (n) => (Number(n)||0).toLocaleString("es-CL");
+
+  // USAMOS LA CLAVE ORIGINAL db_total_ PARA MANTENER TUS DATOS
+  const getDB = (ym) => JSON.parse(localStorage.getItem(`db_total_${ym}`) || "[]");
+  const saveDB = (ym, data) => localStorage.setItem(`db_total_${ym}`, JSON.stringify(data));
+
+  function suggestRate(dateString) {
+    if(!dateString) return;
+    const parts = dateString.split('-');
+    const year = parseInt(parts[0]);
+    const month = parseInt(parts[1]);
+    const day = new Date(parts[0], parts[1]-1, parts[2]).getDay();
+
+    // SOLO SUGIERE PRECIOS NUEVOS SI ES MAYO 2026 EN ADELANTE
+    if (year > 2026 || (year === 2026 && month >= 5)) {
+        let rate = SUGGESTIONS.weekday;
+        if(day === 0) rate = SUGGESTIONS.sunday;
+        else if(day === 6) rate = SUGGESTIONS.saturday;
+        document.getElementById("dayRate").value = rate;
+    } else {
+        // Para meses anteriores, podrías dejarlo en blanco o un valor antiguo si lo recuerdas
+        document.getElementById("dayRate").value = ""; 
+    }
+  }
+
+  function addDayEntry() {
+    const ym = document.getElementById("month").value;
+    const date = document.getElementById("date").value;
+    const pks = Number(document.getElementById("packages").value || 0);
+    const rate = Number(document.getElementById("dayRate").value || 0);
+    const wtd = Number(document.getElementById("withdrawals").value || 0);
+    if(!date || !ym) return alert("Falta fecha");
+    const db = getDB(ym);
+    db.push({ type: 'day', date, pks, rate, wtd });
+    db.sort((a,b) => a.date.localeCompare(b.date));
+    saveDB(ym, db);
+    document.getElementById("packages").value = "";
+    document.getElementById("withdrawals").value = "";
+    render();
+  }
+
+  function addGenericEntry() {
+    const ym = document.getElementById("month").value;
+    const type = document.getElementById("entryType").value;
+    const amount = Number(document.getElementById("amount").value || 0);
+    const note = document.getElementById("note").value || "Sin nota";
+    const date = document.getElementById("date").value || new Date().toISOString().split('T')[0];
+    if(!ym || amount <= 0) return alert("Monto no válido");
+    const db = getDB(ym);
+    db.push({ type, date, amount, note });
+    db.sort((a,b) => a.date.localeCompare(b.date));
+    saveDB(ym, db);
+    document.getElementById("amount").value = "";
+    document.getElementById("note").value = "";
+    render();
+  }
+
+  function deleteItem(idx) {
+    if(!confirm("¿Eliminar?")) return;
+    const ym = document.getElementById("month").value;
+    const db = getDB(ym);
+    db.splice(idx, 1);
+    saveDB(ym, db);
+    render();
+  }
+
+  function render() {
+    const ym = document.getElementById("month").value;
+    const db = getDB(ym);
+    const mainTable = document.getElementById("mainTable");
+    const withdrawalTable = document.getElementById("withdrawalTable");
+    mainTable.innerHTML = "";
+    withdrawalTable.innerHTML = "";
+    let totalPksMoney = 0, totalOtherIncome = 0, totalExpenses = 0;
+    const dailyWithdrawals = {};
+
+    db.forEach((item, idx) => {
+      let inc = 0, exp = 0, detail = "";
+      if(!dailyWithdrawals[item.date]) dailyWithdrawals[item.date] = 0;
+
+      if(item.type === 'day') {
+        const sub = item.pks * (item.rate || 0);
+        detail = `📦 ${item.pks} paq (x$${item.rate || 0})`;
+        inc = sub + item.wtd;
+        totalPksMoney += sub;
+        totalOtherIncome += item.wtd;
+        dailyWithdrawals[item.date] += item.wtd;
+      } else if(item.type === 'extra') {
+        detail = `➕ ${item.note}`;
+        inc = item.amount;
+        totalOtherIncome += item.amount;
+      } else {
+        detail = `⛽ ${item.note}`;
+        exp = item.amount;
+        totalExpenses += item.amount;
+      }
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${item.date.split('-').reverse().slice(0,2).join('/')}</td>
+        <td style="font-size:11px">${detail}</td>
+        <td style="color:green">$${fmt(inc)}</td>
+        <td style="color:red">${exp > 0 ? '$'+fmt(exp) : '-'}</td>
+        <td><button class="danger" style="width:auto; padding:2px 6px" onclick="deleteItem(${idx})">×</button></td>
+      `;
+      mainTable.appendChild(tr);
+    });
+
+    Object.keys(dailyWithdrawals).sort().forEach(date => {
+      const amount = dailyWithdrawals[date];
+      if(amount > 0) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td><b>${date.split('-').reverse().join('/')}</b></td><td style="color:#2563eb; font-weight:bold">$${fmt(amount)}</td>`;
+        withdrawalTable.appendChild(tr);
+      }
+    });
+
+    document.getElementById("kpiPackages").innerText = "$" + fmt(totalPksMoney);
+    document.getElementById("kpiWithdrawals").innerText = "$" + fmt(totalOtherIncome);
+    document.getElementById("kpiExpenses").innerText = "$" + fmt(totalExpenses);
+    document.getElementById("kpiNet").innerText = "$" + fmt((totalPksMoney + totalOtherIncome) - totalExpenses);
+  }
+
+  function clearMonth() {
+    const ym = document.getElementById("month").value;
+    if(confirm("¿Borrar mes?")) { saveDB(ym, []); render(); }
+  }
+
+  function exportCSV() {
+    const ym = document.getElementById("month").value;
+    const db = getDB(ym);
+    let csv = "\uFEFFFecha,Tipo,Nota,Ingreso,Egreso\n";
+    db.forEach(i => {
+      const inc = i.type === 'day' ? (i.pks*(i.rate||0))+i.wtd : (i.type==='extra'?i.amount:0);
+      const exp = i.type === 'expense' ? i.amount : 0;
+      const note = i.type === 'day' ? `${i.pks} paq` : i.note;
+      csv += `${i.date},${i.type},"${note}",${inc},${exp}\n`;
+    });
+    const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `reporte_${ym}.csv`; a.click();
+  }
+
+  (function init(){
+    const now = new Date();
+    document.getElementById("month").value = now.toISOString().substring(0,7);
+    const today = now.toISOString().split('T')[0];
+    document.getElementById("date").value = today;
+    suggestRate(today);
+    render();
+  })();
+</script>
+</body>
+</html>
